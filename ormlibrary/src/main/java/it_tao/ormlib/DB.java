@@ -19,15 +19,15 @@ import it_tao.ormlib.util.SQLBuilder;
 public class DB {
     private static final boolean DEBUG = true;
     private static final int VERSION = 1;
-    private static DB myDb;
+   
     private static SQLiteHelpder sqliteHelpder;
     private Context mContext;
     private SQLiteDatabase db;
     private String dbName;
     private String tableName = null;
-
-    public static DB getDb() {
-        return myDb;
+    public   SQLiteDatabase getDb() {
+        
+        return db;
     }
 
     public DB(Context context, String dbFolder, String dbName) {
