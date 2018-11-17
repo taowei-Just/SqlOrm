@@ -230,7 +230,7 @@ public class DB {
         return list;
     }
 
-    private void execSQL(String sql) {
+    public void execSQL(String sql) {
         if ((this.db == null) || ((this.db != null) && (!this.db.isOpen()))) {
             this.db = sqliteHelpder.getWritableDatabase();
         }
