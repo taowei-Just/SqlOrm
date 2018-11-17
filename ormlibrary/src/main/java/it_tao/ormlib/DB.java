@@ -26,6 +26,9 @@ public class DB {
     private String dbName;
     private String tableName = null;
 
+    public static DB getDb() {
+        return myDb;
+    }
 
     public DB(Context context, String dbFolder, String dbName) {
         this.mContext = context;
