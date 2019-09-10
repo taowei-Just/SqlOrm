@@ -4,11 +4,9 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 
-import java.io.File;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,37 +16,31 @@ import it_tao.ormlib.util.ClassUtil;
 import it_tao.ormlib.util.CursorUtils;
 import it_tao.ormlib.util.SQLBuilder;
 
-public class DB {
+public class DB2 {
     private static final boolean DEBUG = true;
     private static final int VERSION = 1;
+   
     private static SQLiteHelpder sqliteHelpder;
-    private SQLiteDatabase db;
     private Context mContext;
+    private SQLiteDatabase db;
     private String dbName;
-    private String tableName;
-
-    public SQLiteDatabase getDb() {
+    private String tableName = null;
+    public   SQLiteDatabase getDb() {
+        
         return db;
     }
 
-
- 
-    public static String getDbDirPath(Context context) {
-        return context.getDatabasePath("db").getParentFile().getAbsolutePath();
+    public DB2(Context context, String dbFolder, String dbName) {
+        this.mContext = context;
+        this.dbName = dbName;
+        sqliteHelpder = new SQLiteHelpder(context, dbFolder, dbName);
+        this.db = sqliteHelpder.getWritableDatabase();
     }
 
-    private void existsSqlFolder(String name) {
-        File file = new File(name);
-        if (!file.exists())
-            file.mkdirs();
-    }
-
-
-    public DB(Context context, String dbFolder, String dbName, String tableName) {
+    public DB2(Context context, String dbFolder, String dbName, String tableName) {
         this.mContext = context;
         this.dbName = dbName;
         this.tableName = tableName;
-        existsSqlFolder(dbFolder);
         sqliteHelpder = new SQLiteHelpder(context, dbFolder, dbName);
         this.db = sqliteHelpder.getWritableDatabase();
     }
@@ -86,10 +78,12 @@ public class DB {
     public void save(Object entity) {
         checkTableExist(entity.getClass());
         checkFaildExist(entity.getClass());
+
         String sql;
         if (TextUtils.isEmpty(tableName)) {
             sql = SQLBuilder.getInsertSQL(entity);
         } else {
+
             sql = SQLBuilder.getInsertSQL(entity, tableName);
         }
         execSQL(sql);
@@ -103,7 +97,9 @@ public class DB {
             deleteSQ = SQLBuilder.getDeleteSQL(entity);
         else
             deleteSQ = SQLBuilder.getDeleteSQL(entity, tableName);
+
         execSQL(deleteSQ);
+        
     }
 
     public <T> void deleteByWhere(Class<T> clazz, String where) {
@@ -113,15 +109,18 @@ public class DB {
         if (TextUtils.isEmpty(tableName))
             deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(clazz, where);
         else
-            deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(where, tableName);
+            deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(  where, tableName);
         execSQL(deleteSqlByWhere);
     }
 
+    public <T> void deleteAll(Class<T> clazz) {
+        checkTableExist(clazz);
+        execSQL(SQLBuilder.getDeletAllSQL(clazz));
+    }
 
-    // 按默认的tableName删除
-    public void deleteAll(Class c) {
-        checkTableExist(c);
-        execSQL(SQLBuilder.getDeletAllSQL(tableName));
+    public <T> void deleteAll() {
+        checkTableExist(tableName.getClass());
+        execSQL(SQLBuilder.<T>getDeletAllSQL(tableName));
     }
 
     public void update(Object entity) {
@@ -136,7 +135,7 @@ public class DB {
         execSQL(updateSQL);
     }
 
-    public void updateByWhere(Object entity, String strWhere) {
+    public void update(Object entity, String strWhere) {
         checkTableExist(entity.getClass());
         checkFaildExist(entity.getClass());
         String updateSQLByWhere;
@@ -147,6 +146,19 @@ public class DB {
         execSQL(updateSQLByWhere);
     }
 
+
+    public <T> void dropTable() {
+        Class<T> clazz = (Class<T>) tableName.getClass();
+        checkTableExist(clazz);
+        String dropTableSQL;
+        if (TextUtils.isEmpty(tableName))
+            dropTableSQL = SQLBuilder.getDropTableSQL(clazz);
+        else
+            dropTableSQL = SQLBuilder.getDropTableSQL(clazz, tableName);
+        execSQL(dropTableSQL);
+        TableInfo table = TableInfo.get(clazz);
+        table.setCheckDatabese(false);
+    }
 
     public <T> void dropTable(Class<T> clazz) {
         checkTableExist(clazz);
@@ -190,7 +202,7 @@ public class DB {
     }
 
 
-    public <T> List<T> findAllByWhereOrder(Class<T> clazz, String where, String order) {
+    public <T> List<T> findAllByWhere(Class<T> clazz, String where, String order) {
         checkTableExist(clazz);
         checkFaildExist(clazz);
         String select;
@@ -227,7 +239,7 @@ public class DB {
     }
 
     private void debugSql(String sql) {
-        Log.d("RM sql", sql);
+        Log.d("KK_ORM sql", sql);
     }
 
     public synchronized void closeDB() {
@@ -258,15 +270,13 @@ public class DB {
     }
 
     public <T> boolean tableIsExist(Class<T> clazz) {
-
         if (TextUtils.isEmpty(tableName))
             return tableIsExist(clazz, ClassUtil.getTableName(clazz));
         else
             return tableIsExist(clazz, tableName);
-
     }
 
-    HashMap<String, Boolean> checkdTableMap = new HashMap<>();
+    HashMap<String, Boolean> checkdTableMap = new HashMap<String, Boolean>();
 
     private <T> boolean tableIsExist(Class<T> clazz, String tabName) {
         TableInfo table = TableInfo.get(clazz);
@@ -387,15 +397,19 @@ public class DB {
     }
 
     private class SQLiteHelpder extends SQLiteOpenHelper {
-        
-  
+        public SQLiteHelpder(Context context) {
+            super(context, SQLiteHelpder.class.getName() + ".db", null, 1);
+        }
+
+        public SQLiteHelpder(Context context, String dbFolder) {
+            super(context, dbFolder + "/" + SQLiteHelpder.class.getName() + ".db", null, 1);
+        }
 
         public SQLiteHelpder(Context context, String dbFolder, String dbName) {
             super(context, dbFolder + "/" + dbName, null, 1);
         }
 
         public void onCreate(SQLiteDatabase db) {
-            
         }
 
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {

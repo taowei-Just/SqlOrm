@@ -342,15 +342,15 @@ import java.util.List;
             where.append(" = ");
             where.append("\"" + primaryKeyValue + "\"");
         }
-        return getDeleteSqlByWhere(entity.getClass(), where.toString(), tableName);
+        return getDeleteSqlByWhere( where.toString(), tableName);
     }
 
     public static <T> String getDeleteSqlByWhere(Class<T> clazz, String where) {
-        return getDeleteSqlByWhere(clazz, where, ClassUtil.getTableName(clazz));
+        return getDeleteSqlByWhere(  where, ClassUtil.getTableName(clazz));
 
     }
 
-    public static <T> String getDeleteSqlByWhere(Class<T> clazz, String where, String tableName) {
+    public static <T> String getDeleteSqlByWhere( String where, String tableName) {
         StringBuilder sql = new StringBuilder();
         sql.append("DELETE FROM ");
         sql.append(tableName);
