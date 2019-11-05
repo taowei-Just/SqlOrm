@@ -21,17 +21,18 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="selectid"
-            android:text="select id=1" />
+            android:onClick="select_all"
+            android:text="select_all" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="selectall"
-            android:text="selectall" />
+            android:onClick="select_name5"
+            android:text="select_name5" />
 
 
     </LinearLayout>
+
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -41,32 +42,18 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="deleteid"
-            android:text="deleteid=1" />
+            android:onClick="delete_all"
+            android:text="delete_all" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="deletes1obj"
-            android:text="delete_s1_obj" />
+            android:onClick="delete_by_name4"
+            android:text="delete_by_name4" />
 
-    
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="deleteallby"
-            android:text="deleteallby" />
 
     </LinearLayout>
-    
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -77,12 +64,72 @@
             android:layout_height="wrap_content"
             android:onClick="updata"
             android:text="updata" />
+
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="updataWhere"
-            android:text="updataWhere" />
+            android:onClick="updata_by_name1"
+            android:text="updata_by_name1" />
 
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="beginT"
+            android:text="beginT" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="force_beginT"
+            android:text="force_beginT" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="commitT"
+            android:text="commitT" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="closeT"
+            android:text="closeT" />
+
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="testT"
+            android:text="testT" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="testS"
+            android:text="testS" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="testB"
+            android:text="testB" />
+
+  
     </LinearLayout>
 
 </LinearLayout>

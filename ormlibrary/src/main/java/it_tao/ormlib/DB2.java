@@ -11,176 +11,156 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import it_tao.ormlib.util.ClassUtil;
 import it_tao.ormlib.util.CursorUtils;
 import it_tao.ormlib.util.SQLBuilder;
 
-public class DB2 {
-    private static final boolean DEBUG = true;
+public class DB2<O> {
+
+    private boolean DEBUG = false;
     private static final int VERSION = 1;
-   
-    private static SQLiteHelpder sqliteHelpder;
+    private SQLiteHelpder sqliteHelpder;
     private Context mContext;
     private SQLiteDatabase db;
     private String dbName;
-    private String tableName = null;
-    public   SQLiteDatabase getDb() {
-        
+    private String tableName;
+    private Class<O> clazz;
+    int statue = 0;//0 未开启 ， 1 开启
+    String transcationThread;
+
+    public SQLiteDatabase getDb() {
         return db;
     }
 
-    public DB2(Context context, String dbFolder, String dbName) {
-        this.mContext = context;
-        this.dbName = dbName;
-        sqliteHelpder = new SQLiteHelpder(context, dbFolder, dbName);
-        this.db = sqliteHelpder.getWritableDatabase();
+    public void setDEBUG(boolean DEBUG) {
+        this.DEBUG = DEBUG;
     }
 
-    public DB2(Context context, String dbFolder, String dbName, String tableName) {
-        this.mContext = context;
-        this.dbName = dbName;
-        this.tableName = tableName;
-        sqliteHelpder = new SQLiteHelpder(context, dbFolder, dbName);
-        this.db = sqliteHelpder.getWritableDatabase();
-    }
+    private static Map<String, DB2> db2Map = new HashMap<>();
 
-//    public static synchronized DBName getInstance(Context context) {
-//        if ((myDb == null) || ((myDb != null) && (myDb.db != null) && (!myDb.db.isOpen()))) {
-//            myDb = new DBName(context);
-//        }
-//        return myDb;
-//    }
-//
-//    public static synchronized DBName getInstance(Context context, String dbFolder) {
-//        if ((myDb == null) || ((myDb != null) && (myDb.db != null) && (!myDb.db.isOpen()))) {
-//            myDb = new DBName(context, dbFolder);
-//        }
-//        return myDb;
-//    }
-//
-//    public static synchronized DBName getInstance(Context context, String dbFolder, String tableName) {
-//        if ((myDb == null) || ((myDb != null) && (myDb.db != null) && (!myDb.db.isOpen()))) {
-//            myDb = new DBName(context, dbFolder, tableName);
-//        }
-//        return myDb;
-//    }
 
-    public void beginTransaction() {
-        this.db.beginTransaction();
-    }
-
-    public void commitTransaction() {
-        this.db.setTransactionSuccessful();
-        this.db.endTransaction();
-    }
-
-    public void save(Object entity) {
-        checkTableExist(entity.getClass());
-        checkFaildExist(entity.getClass());
-
-        String sql;
-        if (TextUtils.isEmpty(tableName)) {
-            sql = SQLBuilder.getInsertSQL(entity);
-        } else {
-
-            sql = SQLBuilder.getInsertSQL(entity, tableName);
+    public static <O> DB2 getInstance(Context context, String dbFolder, String dbName, String tableName, Class<O> clazz) {
+        String str = dbFolder + dbName + tableName;
+        if (null == db2Map.get(str)) {
+            synchronized (DB2.class) {
+                try {
+                    db2Map.put(str, new DB2(context, dbFolder, dbName, tableName, clazz));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
+        return db2Map.get(str);
+    }
+
+    public static <O> DB2 getInstance(Context context, String dbName, String tableName, Class<O> clazz) {
+        String data = context.getDatabasePath("data").getParent();
+        String str = data + dbName + tableName;
+        if (null == db2Map.get(str)) {
+            synchronized (DB2.class) {
+                try {
+                    db2Map.put(str, new DB2(context, data, dbName, tableName, clazz));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return db2Map.get(str);
+    }
+
+
+    private DB2(Context context, String dbFolder, String dbName, String tableName, Class<O> clazz) throws Exception {
+        if (TextUtils.isEmpty(dbName))
+            throw new Exception("dbName not be null !");
+
+        if (TextUtils.isEmpty(tableName))
+            throw new Exception("tableName not be null !");
+
+        if (TextUtils.isEmpty(dbName)) {
+            dbName = context.getDatabasePath("data").getParent();
+        }
+
+        this.dbName = dbName.trim();
+        this.tableName = tableName.trim();
+        this.clazz = clazz;
+
+        sqliteHelpder = new SQLiteHelpder(context.getApplicationContext(), dbFolder.trim(), this.dbName);
+        this.db = sqliteHelpder.getWritableDatabase();
+    }
+
+    public DB2(Context context, String dbName, String tableName, Class<O> clazz) throws Exception {
+        this(context, null, dbName, tableName, clazz);
+    }
+
+
+    /**
+     * 增加一条记录
+     *
+     * @param entity
+     */
+    public synchronized void save(O entity) {
+        checkTableExist();
+        checkFaildExist();
+        String sql = SQLBuilder.getInsertSQL(entity, tableName);
         execSQL(sql);
     }
 
-    public void delete(Object entity) {
-        checkTableExist(entity.getClass());
-        checkFaildExist(entity.getClass());
-        String deleteSQ;
-        if (TextUtils.isEmpty(tableName))
-            deleteSQ = SQLBuilder.getDeleteSQL(entity);
-        else
-            deleteSQ = SQLBuilder.getDeleteSQL(entity, tableName);
 
+    public synchronized void delete(O entity) {
+        checkTableExist();
+        checkFaildExist();
+        String deleteSQ = SQLBuilder.getDeleteSQL(entity, tableName);
         execSQL(deleteSQ);
-        
     }
 
-    public <T> void deleteByWhere(Class<T> clazz, String where) {
-        checkTableExist(clazz);
-        checkFaildExist(clazz);
-        String deleteSqlByWhere;
-        if (TextUtils.isEmpty(tableName))
-            deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(clazz, where);
-        else
-            deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(  where, tableName);
+
+    public synchronized void deleteByWhere(String where) {
+        checkTableExist();
+        checkFaildExist();
+        String deleteSqlByWhere = SQLBuilder.getDeleteSqlByWhere(where, tableName);
         execSQL(deleteSqlByWhere);
     }
 
-    public <T> void deleteAll(Class<T> clazz) {
-        checkTableExist(clazz);
-        execSQL(SQLBuilder.getDeletAllSQL(clazz));
+
+    public synchronized void deleteAll() {
+        if (isCheckTable(tableName))
+            execSQL(SQLBuilder.getDeletAllSQL(tableName));
     }
 
-    public <T> void deleteAll() {
-        checkTableExist(tableName.getClass());
-        execSQL(SQLBuilder.<T>getDeletAllSQL(tableName));
-    }
-
-    public void update(Object entity) {
-        checkTableExist(entity.getClass());
-        checkFaildExist(entity.getClass());
-        String updateSQL;
-        if (TextUtils.isEmpty(tableName))
-            updateSQL = SQLBuilder.getUpdateSQL(entity);
-        else
-            updateSQL = SQLBuilder.getUpdateSQL(entity, tableName);
-
+    public synchronized void update(O entity) {
+        checkTableExist();
+        checkFaildExist();
+        String updateSQL = SQLBuilder.getUpdateSQL(entity, tableName);
         execSQL(updateSQL);
     }
 
-    public void update(Object entity, String strWhere) {
-        checkTableExist(entity.getClass());
-        checkFaildExist(entity.getClass());
-        String updateSQLByWhere;
-        if (TextUtils.isEmpty(tableName))
-            updateSQLByWhere = SQLBuilder.getUpdateSQLByWhere(entity, strWhere);
-        else
-            updateSQLByWhere = SQLBuilder.getUpdateSQLByWhere(entity, strWhere, tableName);
+    public synchronized void update(O entity, String strWhere) {
+        checkTableExist();
+        checkFaildExist();
+        String updateSQLByWhere = SQLBuilder.getUpdateSQLByWhere(entity, strWhere, tableName);
         execSQL(updateSQLByWhere);
     }
 
 
-    public <T> void dropTable() {
-        Class<T> clazz = (Class<T>) tableName.getClass();
-        checkTableExist(clazz);
-        String dropTableSQL;
-        if (TextUtils.isEmpty(tableName))
-            dropTableSQL = SQLBuilder.getDropTableSQL(clazz);
-        else
-            dropTableSQL = SQLBuilder.getDropTableSQL(clazz, tableName);
-        execSQL(dropTableSQL);
-        TableInfo table = TableInfo.get(clazz);
-        table.setCheckDatabese(false);
-    }
-
-    public <T> void dropTable(Class<T> clazz) {
-        checkTableExist(clazz);
-        String dropTableSQL;
-        if (TextUtils.isEmpty(tableName))
-            dropTableSQL = SQLBuilder.getDropTableSQL(clazz);
-        else
-            dropTableSQL = SQLBuilder.getDropTableSQL(clazz, tableName);
+    public synchronized void dropTable() {
+        checkTableExist();
+        String dropTableSQL = SQLBuilder.getDropTableSQL(clazz, tableName);
         execSQL(dropTableSQL);
         TableInfo table = TableInfo.get(clazz);
         table.setCheckDatabese(false);
     }
 
 
-    public <T> List<T> findAll(Class<T> clazz) {
-        return findAllByWhere(clazz, null);
+    public synchronized List<O> findAll() {
+        return findAllByWhere(null);
     }
 
-    public <T> List<T> findAllByWhere(Class<T> clazz, String where) {
+    public synchronized List<O> findAllByWhere(String where) {
         String select;
-        checkTableExist(clazz);
-        checkFaildExist(clazz);
+        checkTableExist();
+        checkFaildExist();
         if (TextUtils.isEmpty(tableName)) {
             select = SQLBuilder.getSelectSQL(clazz, where);
         } else {
@@ -197,14 +177,13 @@ public class DB2 {
         }
         if (cursor != null)
             cursor.close();
-        cursor = null;
         return list;
     }
 
 
-    public <T> List<T> findAllByWhere(Class<T> clazz, String where, String order) {
-        checkTableExist(clazz);
-        checkFaildExist(clazz);
+    public synchronized List<O> findAllByWhere(String where, String order) {
+        checkTableExist();
+        checkFaildExist();
         String select;
         if (TextUtils.isEmpty(tableName))
             select = SQLBuilder.getSelectSQL(clazz, where, order);
@@ -230,7 +209,7 @@ public class DB2 {
         return list;
     }
 
-    public void execSQL(String sql) {
+    public synchronized void execSQL(String sql) {
         if ((this.db == null) || ((this.db != null) && (!this.db.isOpen()))) {
             this.db = sqliteHelpder.getWritableDatabase();
         }
@@ -238,8 +217,9 @@ public class DB2 {
         this.db.execSQL(sql);
     }
 
-    private void debugSql(String sql) {
-        Log.d("KK_ORM sql", sql);
+    private synchronized void debugSql(String sql) {
+        if (DEBUG)
+            Log.d("KK_ORM sql", sql);
     }
 
     public synchronized void closeDB() {
@@ -247,7 +227,7 @@ public class DB2 {
             sqliteHelpder.close();
     }
 
-    private <T> boolean cloumIsExist(String tableName, String cloumName) {
+    private synchronized boolean cloumIsExist(String tableName, String cloumName) {
         Cursor cursor = null;
         try {
             String sql = "select    count(*) from sqlite_master where type ='table' and name ='" + tableName.trim() + "' and sql like '%" + cloumName + "%'";
@@ -269,24 +249,23 @@ public class DB2 {
         }
     }
 
-    public <T> boolean tableIsExist(Class<T> clazz) {
-        if (TextUtils.isEmpty(tableName))
-            return tableIsExist(clazz, ClassUtil.getTableName(clazz));
-        else
-            return tableIsExist(clazz, tableName);
+    public synchronized boolean tableIsExist() {
+        return tableIsExist(clazz, tableName);
     }
 
-    HashMap<String, Boolean> checkdTableMap = new HashMap<String, Boolean>();
+    HashMap<String, Boolean> checkdTableMap = new HashMap<>();
 
-    private <T> boolean tableIsExist(Class<T> clazz, String tabName) {
-        TableInfo table = TableInfo.get(clazz);
+    private synchronized boolean tableIsExist(Class<O> clazz, String tabName) {
+        boolean result = false;
+
+        if (TextUtils.isEmpty(tabName)) {
+            return false;
+        }
         if (isCheckTable(tabName)) {
             return true;
         }
-        boolean result = false;
-        if (tabName == null) {
-            return false;
-        }
+
+        TableInfo table = TableInfo.get(clazz);
         Cursor cursor = null;
         try {
             String sql = "select count(*) as c from sqlite_master where type ='table' and name ='" + tabName.trim() + "' ";
@@ -296,7 +275,8 @@ public class DB2 {
                 int count = cursor.getInt(0);
                 if (count > 0) {
                     result = true;
-                    table.setCheckDatabese(true);
+                    if (null != table)
+                        table.setCheckDatabese(true);
                     checkdTableMap.put(tabName, true);
                 }
             }
@@ -306,7 +286,39 @@ public class DB2 {
         } finally {
             if (cursor != null)
                 cursor.close();
-            cursor = null;
+        }
+        return result;
+    }
+
+    private synchronized boolean tableIsExist(String tabName) {
+        boolean result = false;
+
+        if (TextUtils.isEmpty(tabName)) {
+            return false;
+        }
+        if (isCheckTable(tabName)) {
+            return true;
+        }
+
+        Cursor cursor = null;
+        try {
+            String sql = "select count(*) as c from sqlite_master where type ='table' and name ='" + tabName.trim() + "' ";
+            debugSql(sql);
+            cursor = this.db.rawQuery(sql, null);
+            if (cursor.moveToNext()) {
+                int count = cursor.getInt(0);
+                if (count > 0) {
+                    result = true;
+
+                    checkdTableMap.put(tabName, true);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            if (cursor != null)
+                cursor.close();
         }
         return result;
     }
@@ -314,15 +326,11 @@ public class DB2 {
     /**
      * 判断某表里某字段是否存在
      */
-    public <T> void checkFaildExist(Class<T> clazz) {
+    public synchronized void checkFaildExist() {
 
         String queryStr = "select sql from sqlite_master where type = 'table' and name = '%s'";
 
-        if (!TextUtils.isEmpty(tableName))
-            queryStr = String.format(queryStr, tableName);
-        else
-            queryStr = String.format(queryStr, ClassUtil.getTableName(clazz));
-
+        queryStr = String.format(queryStr, tableName);
         Cursor c = db.rawQuery(queryStr, null);
         String tableCreateSql = null;
         try {
@@ -351,12 +359,7 @@ public class DB2 {
     private synchronized <T> void createFields(Class<T> clazz, ArrayList<Field> tablefields) {
 
         for (Field field : tablefields) {
-            String tableSQL;
-            if (!TextUtils.isEmpty(tableName)) {
-                tableSQL = SQLBuilder.getFieldAtTableSQL(tableName, field);
-            } else
-                tableSQL = SQLBuilder.getFieldAtTableSQL(ClassUtil.getTableName(clazz), field);
-
+            String tableSQL = SQLBuilder.getFieldAtTableSQL(ClassUtil.getTableName(clazz), field);
             try {
                 debugSql(tableSQL);
                 db.execSQL(tableSQL);
@@ -373,27 +376,66 @@ public class DB2 {
         return false;
     }
 
-    public <T> void checkTableExist(Class<T> clazz) {
-        if (!tableIsExist(clazz)) {
-            String createSQL;
-            if (TextUtils.isEmpty(tableName))
-                createSQL = SQLBuilder.getCreatTableSQL(clazz);
-            else
-                createSQL = SQLBuilder.getCreatTableSQL(clazz, tableName);
-            debugSql(createSQL);
+    public synchronized void checkTableExist() {
+        if (!tableIsExist()) {
+            String createSQL = SQLBuilder.getCreatTableSQL(clazz, tableName);
             execSQL(createSQL);
         }
     }
 
 
-    public void beginTrancation() {
+    public void setTranscationThread(String transcationThread) {
+        this.transcationThread = transcationThread;
+    }
+
+    public synchronized void beginTransaction() throws Exception {
+        if (db.inTransaction() || statue == 1)
+            throw new Exception("last Transaction un_commit!");
+        this.db.beginTransaction();
+        transcationThread = Thread.currentThread().getName();
+        statue = 1;
+    }
+
+    public synchronized void forceBeginTransaction() throws Exception {
+        if (db.inTransaction() || statue == 0) {
+            if (!Thread.currentThread().getName().equals(transcationThread))
+                throw new Exception("The operation threads do not match !");
+
+            try {
+                this.db.endTransaction();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         this.db.beginTransaction();
 
     }
 
-    public void endTrancation() {
+    public synchronized void commitTransaction() throws Exception {
+
+        if (!db.inTransaction())
+            return;
+
+        if (!Thread.currentThread().getName().equals(transcationThread)) {
+
+            throw new Exception("The operation threads do not match !");
+        }
+
         this.db.setTransactionSuccessful();
         this.db.endTransaction();
+        transcationThread = "";
+        statue = 0;
+    }
+
+    public synchronized void close() {
+        if (null == db || !db.isOpen())
+            return;
+        try {
+            commitTransaction();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        db.close();
     }
 
     private class SQLiteHelpder extends SQLiteOpenHelper {
@@ -414,8 +456,8 @@ public class DB2 {
 
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         }
-
     }
+
 
 }
 

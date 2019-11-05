@@ -335,7 +335,6 @@ import java.util.List;
 
     public static String getDeleteSQL(Object entity, String tableName) {
         Object primaryKeyValue = FieldUtil.getValue(entity, primary_key);
-
         StringBuilder where = new StringBuilder();
         if ((primaryKeyValue != null) && (!primaryKeyValue.equals(""))) {
             where.append(primary_key);
@@ -370,9 +369,7 @@ import java.util.List;
     /*     */ 
 /*     */
     public static <T> String getDeletAllSQL(Class<T> clazz) {
-
         return getDeletAllSQL(ClassUtil.getTableName(clazz));
-
     }
 
     public static <T> String getDeletAllSQL(String tableName)
